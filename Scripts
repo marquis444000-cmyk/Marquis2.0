@@ -1,0 +1,1122 @@
+-- Marquis Scripts
+-- LocalScript in StarterPlayer > StarterPlayerScripts
+-- For your own Roblox Studio game
+
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local plr = Players.LocalPlayer
+
+local esp = false
+local xray = false
+local lockOn = false
+
+local highlights = {}
+local nameTags = {}
+local target = nil
+
+--------------------------------------------------
+-- GUI
+--------------------------------------------------
+
+local gui = Instance.new("ScreenGui")
+gui.Name = "MarquisScripts"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = plr:WaitForChild("PlayerGui")
+
+--------------------------------------------------
+-- NOTIFICATION
+--------------------------------------------------
+
+local notification = Instance.new("Frame")
+notification.Size = UDim2.fromOffset(285,55)
+notification.Position = UDim2.new(0,15,1,-70)
+notification.BackgroundColor3 = Color3.fromRGB(7,24,58)
+notification.BorderSizePixel = 0
+notification.Visible = false
+notification.ZIndex = 200
+notification.Parent = gui
+
+local notificationCorner = Instance.new("UICorner")
+notificationCorner.CornerRadius = UDim.new(0,10)
+notificationCorner.Parent = notification
+
+local notificationStroke = Instance.new("UIStroke")
+notificationStroke.Color = Color3.fromRGB(90,155,255)
+notificationStroke.Transparency = .25
+notificationStroke.Parent = notification
+
+local notificationText = Instance.new("TextLabel")
+notificationText.Size = UDim2.new(1,-20,1,-10)
+notificationText.Position = UDim2.fromOffset(10,5)
+notificationText.BackgroundTransparency = 1
+notificationText.Text = ""
+notificationText.TextColor3 = Color3.fromRGB(240,245,255)
+notificationText.TextSize = 12
+notificationText.Font = Enum.Font.GothamMedium
+notificationText.TextWrapped = true
+notificationText.TextXAlignment = Enum.TextXAlignment.Left
+notificationText.TextYAlignment = Enum.TextYAlignment.Center
+notificationText.ZIndex = 201
+notificationText.Parent = notification
+
+local notificationNumber = 0
+
+local function showNotification(message)
+
+	notificationNumber += 1
+	local thisNotification = notificationNumber
+
+	notificationText.Text = message
+	notification.Visible = true
+	notification.BackgroundTransparency = 1
+	notificationText.TextTransparency = 1
+
+	TweenService:Create(
+		notification,
+		TweenInfo.new(.2),
+		{BackgroundTransparency = 0}
+	):Play()
+
+	TweenService:Create(
+		notificationText,
+		TweenInfo.new(.2),
+		{TextTransparency = 0}
+	):Play()
+
+	task.delay(2,function()
+
+		if thisNotification ~= notificationNumber then
+			return
+		end
+
+		local fadeFrame = TweenService:Create(
+			notification,
+			TweenInfo.new(.25),
+			{BackgroundTransparency = 1}
+		)
+
+		local fadeText = TweenService:Create(
+			notificationText,
+			TweenInfo.new(.25),
+			{TextTransparency = 1}
+		)
+
+		fadeFrame:Play()
+		fadeText:Play()
+
+		fadeFrame.Completed:Wait()
+
+		if thisNotification == notificationNumber then
+			notification.Visible = false
+		end
+
+	end)
+
+end
+
+--------------------------------------------------
+-- LOADING SCREEN
+--------------------------------------------------
+
+local loading = Instance.new("Frame")
+loading.Size = UDim2.fromScale(1,1)
+loading.BackgroundColor3 = Color3.fromRGB(3,10,28)
+loading.BorderSizePixel = 0
+loading.ZIndex = 100
+loading.Parent = gui
+
+local loadTitle = Instance.new("TextLabel")
+loadTitle.Size = UDim2.fromOffset(500,60)
+loadTitle.Position = UDim2.fromScale(.5,.42)
+loadTitle.AnchorPoint = Vector2.new(.5,.5)
+loadTitle.BackgroundTransparency = 1
+loadTitle.Text = "MARQUIS SCRIPTS"
+loadTitle.TextColor3 = Color3.new(1,1,1)
+loadTitle.TextSize = 32
+loadTitle.Font = Enum.Font.GothamBold
+loadTitle.ZIndex = 101
+loadTitle.Parent = loading
+
+local subtitle = Instance.new("TextLabel")
+subtitle.Size = UDim2.fromOffset(500,30)
+subtitle.Position = UDim2.fromScale(.5,.49)
+subtitle.AnchorPoint = Vector2.new(.5,.5)
+subtitle.BackgroundTransparency = 1
+subtitle.Text = "INITIALIZING..."
+subtitle.TextColor3 = Color3.fromRGB(170,195,235)
+subtitle.TextSize = 13
+subtitle.Font = Enum.Font.Gotham
+subtitle.ZIndex = 101
+subtitle.Parent = loading
+
+local barBack = Instance.new("Frame")
+barBack.Size = UDim2.fromOffset(360,8)
+barBack.Position = UDim2.fromScale(.5,.55)
+barBack.AnchorPoint = Vector2.new(.5,.5)
+barBack.BackgroundColor3 = Color3.fromRGB(20,43,80)
+barBack.BorderSizePixel = 0
+barBack.ZIndex = 101
+barBack.Parent = loading
+
+local barCorner = Instance.new("UICorner")
+barCorner.CornerRadius = UDim.new(1,0)
+barCorner.Parent = barBack
+
+local bar = Instance.new("Frame")
+bar.Size = UDim2.new(0,0,1,0)
+bar.BackgroundColor3 = Color3.fromRGB(255,255,255)
+bar.BorderSizePixel = 0
+bar.ZIndex = 102
+bar.Parent = barBack
+
+local barCorner2 = Instance.new("UICorner")
+barCorner2.CornerRadius = UDim.new(1,0)
+barCorner2.Parent = bar
+
+local percentage = Instance.new("TextLabel")
+percentage.Size = UDim2.fromOffset(100,25)
+percentage.Position = UDim2.fromScale(.5,.60)
+percentage.AnchorPoint = Vector2.new(.5,.5)
+percentage.BackgroundTransparency = 1
+percentage.Text = "0%"
+percentage.TextColor3 = Color3.fromRGB(190,210,245)
+percentage.TextSize = 12
+percentage.Font = Enum.Font.Gotham
+percentage.ZIndex = 101
+percentage.Parent = loading
+
+--------------------------------------------------
+-- LOADING ANIMATION
+--------------------------------------------------
+
+task.spawn(function()
+
+	for i = 0,100 do
+
+		bar.Size = UDim2.new(i/100,0,1,0)
+		percentage.Text = i .. "%"
+
+		if i < 30 then
+			subtitle.Text = "INITIALIZING..."
+		elseif i < 60 then
+			subtitle.Text = "LOADING FEATURES..."
+		elseif i < 90 then
+			subtitle.Text = "SETTING THINGS UP..."
+		elseif i < 100 then
+			subtitle.Text = "ALMOST READY..."
+		else
+			subtitle.Text = "WELCOME, " .. plr.Name
+		end
+
+		task.wait(.06)
+
+	end
+
+	task.wait(2)
+
+	for _,v in ipairs(loading:GetDescendants()) do
+
+		if v:IsA("TextLabel") then
+
+			TweenService:Create(
+				v,
+				TweenInfo.new(.45),
+				{TextTransparency = 1}
+			):Play()
+
+		elseif v:IsA("Frame") then
+
+			TweenService:Create(
+				v,
+				TweenInfo.new(.45),
+				{BackgroundTransparency = 1}
+			):Play()
+
+		end
+
+	end
+
+	task.wait(.5)
+
+	loading:Destroy()
+
+end)
+
+--------------------------------------------------
+-- MAIN MENU
+--------------------------------------------------
+
+local menu = Instance.new("Frame")
+
+menu.Size = UDim2.fromOffset(255,275)
+menu.Position = UDim2.fromScale(.05,.2)
+
+menu.BackgroundColor3 = Color3.fromRGB(7,24,58)
+menu.BorderSizePixel = 0
+menu.Active = true
+menu.ClipsDescendants = true
+menu.Parent = gui
+
+local menuCorner = Instance.new("UICorner")
+menuCorner.CornerRadius = UDim.new(0,12)
+menuCorner.Parent = menu
+
+local menuStroke = Instance.new("UIStroke")
+menuStroke.Color = Color3.fromRGB(90,155,255)
+menuStroke.Thickness = 1.5
+menuStroke.Transparency = .25
+menuStroke.Parent = menu
+
+--------------------------------------------------
+-- TOP BAR
+--------------------------------------------------
+
+local top = Instance.new("Frame")
+top.Size = UDim2.new(1,0,0,48)
+top.BackgroundColor3 = Color3.fromRGB(10,39,88)
+top.BorderSizePixel = 0
+top.Active = true
+top.ZIndex = 10
+top.Parent = menu
+
+local topCorner = Instance.new("UICorner")
+topCorner.CornerRadius = UDim.new(0,12)
+topCorner.Parent = top
+
+local accent = Instance.new("Frame")
+accent.Size = UDim2.new(1,0,0,3)
+accent.Position = UDim2.fromOffset(0,45)
+accent.BackgroundColor3 = Color3.fromRGB(255,255,255)
+accent.BorderSizePixel = 0
+accent.ZIndex = 11
+accent.Parent = top
+
+--------------------------------------------------
+-- TITLE
+--------------------------------------------------
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1,-25,0,23)
+title.Position = UDim2.fromOffset(14,3)
+title.BackgroundTransparency = 1
+title.Text = "MARQUIS SCRIPTS"
+title.TextColor3 = Color3.new(1,1,1)
+title.TextSize = 17
+title.Font = Enum.Font.GothamBold
+title.TextXAlignment = Enum.TextXAlignment.Left
+title.ZIndex = 12
+title.Parent = top
+
+--------------------------------------------------
+-- VERSION
+--------------------------------------------------
+
+local version = Instance.new("TextLabel")
+version.Size = UDim2.new(1,-25,0,15)
+version.Position = UDim2.fromOffset(15,27)
+version.BackgroundTransparency = 1
+version.Text = "VERSION 2.0"
+version.TextColor3 = Color3.fromRGB(145,180,230)
+version.TextSize = 8
+version.Font = Enum.Font.GothamMedium
+version.TextXAlignment = Enum.TextXAlignment.Left
+version.ZIndex = 12
+version.Parent = top
+
+--------------------------------------------------
+-- STATUS
+--------------------------------------------------
+
+local status = Instance.new("TextLabel")
+status.Size = UDim2.new(1,-30,0,22)
+status.Position = UDim2.fromOffset(15,54)
+status.BackgroundTransparency = 1
+status.Text = "●  READY"
+status.TextColor3 = Color3.fromRGB(190,215,255)
+status.TextSize = 11
+status.Font = Enum.Font.GothamMedium
+status.TextXAlignment = Enum.TextXAlignment.Left
+status.ZIndex = 10
+status.Parent = menu
+
+--------------------------------------------------
+-- SCROLLING AREA
+--------------------------------------------------
+
+local scroll = Instance.new("ScrollingFrame")
+
+scroll.Size = UDim2.new(1,-10,1,-82)
+scroll.Position = UDim2.fromOffset(5,78)
+
+scroll.BackgroundTransparency = 1
+scroll.BorderSizePixel = 0
+
+scroll.CanvasSize = UDim2.fromOffset(0,200)
+scroll.ScrollBarThickness = 4
+scroll.ScrollBarImageColor3 = Color3.fromRGB(90,155,255)
+scroll.ScrollBarImageTransparency = .25
+
+scroll.ScrollingDirection = Enum.ScrollingDirection.Y
+scroll.ScrollingEnabled = true
+scroll.Active = true
+scroll.ZIndex = 5
+scroll.Parent = menu
+
+--------------------------------------------------
+-- BUTTON BOUNCE
+--------------------------------------------------
+
+local function buttonBounce(button)
+
+	local originalSize = button.Size
+	local originalPosition = button.Position
+
+	local shrink = TweenService:Create(
+		button,
+		TweenInfo.new(.07),
+		{
+			Size = UDim2.new(
+				originalSize.X.Scale,
+				originalSize.X.Offset - 6,
+				originalSize.Y.Scale,
+				originalSize.Y.Offset - 4
+			),
+
+			Position = UDim2.new(
+				originalPosition.X.Scale,
+				originalPosition.X.Offset + 3,
+				originalPosition.Y.Scale,
+				originalPosition.Y.Offset + 2
+			)
+		}
+	)
+
+	local bounce = TweenService:Create(
+		button,
+		TweenInfo.new(
+			.18,
+			Enum.EasingStyle.Back,
+			Enum.EasingDirection.Out
+		),
+		{
+			Size = originalSize,
+			Position = originalPosition
+		}
+	)
+
+	shrink:Play()
+
+	shrink.Completed:Once(function()
+		bounce:Play()
+	end)
+
+end
+
+--------------------------------------------------
+-- BUTTON CREATOR
+--------------------------------------------------
+
+local function makeButton(text,y)
+
+	local button = Instance.new("TextButton")
+
+	button.Size = UDim2.new(1,-15,0,42)
+	button.Position = UDim2.fromOffset(5,y)
+
+	button.BackgroundColor3 = Color3.fromRGB(12,43,91)
+	button.BorderSizePixel = 0
+
+	button.Text = text
+	button.TextColor3 = Color3.fromRGB(245,248,255)
+	button.TextSize = 13
+	button.Font = Enum.Font.GothamMedium
+	button.TextXAlignment = Enum.TextXAlignment.Left
+
+	button.AutoButtonColor = false
+	button.ZIndex = 6
+	button.Parent = scroll
+
+	local corner = Instance.new("UICorner")
+	corner.CornerRadius = UDim.new(0,8)
+	corner.Parent = button
+
+	local stroke = Instance.new("UIStroke")
+	stroke.Color = Color3.fromRGB(75,140,235)
+	stroke.Transparency = .5
+	stroke.Parent = button
+
+	local padding = Instance.new("UIPadding")
+	padding.PaddingLeft = UDim.new(0,14)
+	padding.Parent = button
+
+	button.MouseEnter:Connect(function()
+
+		TweenService:Create(
+			button,
+			TweenInfo.new(.15),
+			{
+				BackgroundColor3 = Color3.fromRGB(20,67,130)
+			}
+		):Play()
+
+	end)
+
+	button.MouseLeave:Connect(function()
+
+		TweenService:Create(
+			button,
+			TweenInfo.new(.15),
+			{
+				BackgroundColor3 = Color3.fromRGB(12,43,91)
+			}
+		):Play()
+
+	end)
+
+	return button
+
+end
+
+--------------------------------------------------
+-- BUTTONS
+--------------------------------------------------
+
+local espBtn =
+	makeButton("ESP                         OFF",0)
+
+local xrayBtn =
+	makeButton("X-Ray                       OFF",48)
+
+local aimBtn =
+	makeButton("Aim Lock                 OFF",96)
+
+local gunBtn =
+	makeButton("Get Dropped Gun",144)
+
+--------------------------------------------------
+-- TOGGLE TEXT
+--------------------------------------------------
+
+local function setToggleText(button,name,state)
+
+	button.Text =
+		name ..
+		string.rep(" ",math.max(1,25-#name)) ..
+		(state and "ON" or "OFF")
+
+end
+
+--------------------------------------------------
+-- SEPARATE CLOSE / OPEN BUTTON
+--------------------------------------------------
+
+local toggle = Instance.new("TextButton")
+
+toggle.Size = UDim2.fromOffset(78,34)
+
+-- Independent starting position
+toggle.Position = UDim2.fromScale(.05,.12)
+
+toggle.Text = "CLOSE"
+toggle.TextColor3 = Color3.new(1,1,1)
+toggle.TextSize = 12
+toggle.Font = Enum.Font.GothamMedium
+toggle.BackgroundColor3 = Color3.fromRGB(10,39,88)
+toggle.BorderSizePixel = 0
+toggle.AutoButtonColor = false
+toggle.Active = true
+toggle.ZIndex = 50
+toggle.Parent = gui
+
+local toggleCorner = Instance.new("UICorner")
+toggleCorner.CornerRadius = UDim.new(0,8)
+toggleCorner.Parent = toggle
+
+local toggleStroke = Instance.new("UIStroke")
+toggleStroke.Color = Color3.fromRGB(90,155,255)
+toggleStroke.Transparency = .3
+toggleStroke.Parent = toggle
+
+toggle.MouseEnter:Connect(function()
+
+	TweenService:Create(
+		toggle,
+		TweenInfo.new(.15),
+		{
+			BackgroundColor3 = Color3.fromRGB(20,67,130)
+		}
+	):Play()
+
+end)
+
+toggle.MouseLeave:Connect(function()
+
+	TweenService:Create(
+		toggle,
+		TweenInfo.new(.15),
+		{
+			BackgroundColor3 = Color3.fromRGB(10,39,88)
+		}
+	):Play()
+
+end)
+
+toggle.MouseButton1Click:Connect(function()
+
+	menu.Visible = not menu.Visible
+
+	toggle.Text =
+		menu.Visible and "CLOSE" or "OPEN"
+
+	showNotification(
+		menu.Visible
+		and "Menu opened."
+		or "Menu closed."
+	)
+
+end)
+
+--------------------------------------------------
+-- ESP
+--------------------------------------------------
+
+local function clearESP(player)
+
+	if highlights[player] then
+		highlights[player]:Destroy()
+		highlights[player] = nil
+	end
+
+	if nameTags[player] then
+		nameTags[player]:Destroy()
+		nameTags[player] = nil
+	end
+
+end
+
+local function updateESP(player)
+
+	clearESP(player)
+
+	if not esp or player == plr then
+		return
+	end
+
+	local character = player.Character
+
+	if not character then
+		return
+	end
+
+	local highlight = Instance.new("Highlight")
+
+	highlight.Name = "MarquisESP"
+	highlight.Adornee = character
+	highlight.FillTransparency = .5
+	highlight.OutlineTransparency = 0
+
+	highlight.DepthMode =
+		xray
+		and Enum.HighlightDepthMode.AlwaysOnTop
+		or Enum.HighlightDepthMode.Occluded
+
+	highlight.Parent = character
+
+	highlights[player] = highlight
+
+	local head = character:FindFirstChild("Head")
+
+	if head then
+
+		local billboard = Instance.new("BillboardGui")
+
+		billboard.Name = "MarquisESPName"
+		billboard.Adornee = head
+		billboard.Size = UDim2.fromOffset(180,35)
+		billboard.StudsOffset = Vector3.new(0,2.8,0)
+		billboard.AlwaysOnTop = true
+		billboard.Parent = head
+
+		local nameLabel = Instance.new("TextLabel")
+
+		nameLabel.Size = UDim2.fromScale(1,1)
+		nameLabel.BackgroundTransparency = 1
+		nameLabel.Text = player.Name
+		nameLabel.TextColor3 = Color3.fromRGB(255,255,255)
+		nameLabel.TextSize = 13
+		nameLabel.Font = Enum.Font.GothamBold
+		nameLabel.TextStrokeTransparency = .35
+		nameLabel.Parent = billboard
+
+		nameTags[player] = billboard
+
+	end
+
+end
+
+local function updateAllESP()
+
+	for _,player in ipairs(Players:GetPlayers()) do
+		updateESP(player)
+	end
+
+end
+
+espBtn.MouseButton1Click:Connect(function()
+
+	buttonBounce(espBtn)
+
+	esp = not esp
+
+	setToggleText(espBtn,"ESP",esp)
+
+	updateAllESP()
+
+	showNotification(
+		esp
+		and "ESP enabled — player usernames are visible."
+		or "ESP disabled."
+	)
+
+end)
+
+xrayBtn.MouseButton1Click:Connect(function()
+
+	buttonBounce(xrayBtn)
+
+	xray = not xray
+
+	setToggleText(xrayBtn,"X-Ray",xray)
+
+	updateAllESP()
+
+	showNotification(
+		xray
+		and "X-Ray enabled — ESP is visible through walls."
+		or "X-Ray disabled."
+	)
+
+end)
+
+--------------------------------------------------
+-- AIM LOCK
+--------------------------------------------------
+
+local function getClosestTarget()
+
+	local camera = workspace.CurrentCamera
+
+	if not camera then
+		return nil
+	end
+
+	local center = Vector2.new(
+		camera.ViewportSize.X / 2,
+		camera.ViewportSize.Y / 2
+	)
+
+	local closest = nil
+	local closestDistance = math.huge
+
+	for _,player in ipairs(Players:GetPlayers()) do
+
+		if player ~= plr and player.Character then
+
+			local humanoid =
+				player.Character:FindFirstChildOfClass("Humanoid")
+
+			local head =
+				player.Character:FindFirstChild("Head")
+
+			if humanoid
+				and humanoid.Health > 0
+				and head then
+
+				local position,visible =
+					camera:WorldToViewportPoint(head.Position)
+
+				if visible and position.Z > 0 then
+
+					local distance =
+						(
+							Vector2.new(
+								position.X,
+								position.Y
+							) - center
+						).Magnitude
+
+					if distance < closestDistance then
+						closestDistance = distance
+						closest = player
+					end
+
+				end
+
+			end
+
+		end
+
+	end
+
+	return closest
+
+end
+
+aimBtn.MouseButton1Click:Connect(function()
+
+	buttonBounce(aimBtn)
+
+	lockOn = not lockOn
+
+	setToggleText(aimBtn,"Aim Lock",lockOn)
+
+	if not lockOn then
+		target = nil
+	end
+
+	showNotification(
+		lockOn
+		and "Aim Lock enabled — tracking the player closest to your crosshair."
+		or "Aim Lock disabled."
+	)
+
+end)
+
+RunService:BindToRenderStep(
+	"MarquisAimLock",
+	Enum.RenderPriority.Camera.Value + 1,
+	function()
+
+		if not lockOn then
+			return
+		end
+
+		target = getClosestTarget()
+
+		if not target then
+			return
+		end
+
+		local character = target.Character
+
+		if not character then
+			return
+		end
+
+		local humanoid =
+			character:FindFirstChildOfClass("Humanoid")
+
+		local head =
+			character:FindFirstChild("Head")
+
+		local camera =
+			workspace.CurrentCamera
+
+		if humanoid
+			and humanoid.Health > 0
+			and head
+			and camera then
+
+			camera.CFrame =
+				CFrame.lookAt(
+					camera.CFrame.Position,
+					head.Position
+				)
+
+		end
+
+	end
+)
+
+--------------------------------------------------
+-- GET DROPPED GUN
+--------------------------------------------------
+
+gunBtn.MouseButton1Click:Connect(function()
+
+	buttonBounce(gunBtn)
+
+	local gun =
+		workspace:FindFirstChild("GunDrop",true)
+
+	if not gun then
+
+		gunBtn.Text = "Gun Not Dropped"
+
+		showNotification(
+			"No GunDrop was found in the game."
+		)
+
+		task.delay(1.5,function()
+			gunBtn.Text = "Get Dropped Gun"
+		end)
+
+		return
+	end
+
+	local character = plr.Character
+
+	if not character then
+		return
+	end
+
+	local root =
+		character:FindFirstChild("HumanoidRootPart")
+
+	if not root then
+		return
+	end
+
+	local gunPart
+
+	if gun:IsA("BasePart") then
+
+		gunPart = gun
+
+	else
+
+		gunPart =
+			gun:FindFirstChildWhichIsA(
+				"BasePart",
+				true
+			)
+
+	end
+
+	if gunPart then
+
+		root.CFrame =
+			gunPart.CFrame +
+			Vector3.new(0,3,0)
+
+		gunBtn.Text = "Gun Found"
+
+		showNotification(
+			"Teleported you to the dropped gun."
+		)
+
+		task.delay(1.5,function()
+			gunBtn.Text = "Get Dropped Gun"
+		end)
+
+	else
+
+		showNotification(
+			"The GunDrop has no BasePart."
+		)
+
+	end
+
+end)
+
+--------------------------------------------------
+-- PLAYER CARD
+--------------------------------------------------
+
+local playerCard = Instance.new("Frame")
+
+playerCard.Size = UDim2.fromOffset(195,54)
+playerCard.Position = UDim2.new(1,-210,1,-69)
+
+playerCard.BackgroundColor3 = Color3.fromRGB(7,24,58)
+playerCard.BorderSizePixel = 0
+playerCard.Parent = gui
+
+local cardCorner = Instance.new("UICorner")
+cardCorner.CornerRadius = UDim.new(0,9)
+cardCorner.Parent = playerCard
+
+local cardStroke = Instance.new("UIStroke")
+cardStroke.Color = Color3.fromRGB(90,155,255)
+cardStroke.Transparency = .25
+cardStroke.Parent = playerCard
+
+local avatar = Instance.new("ImageLabel")
+
+avatar.Size = UDim2.fromOffset(38,38)
+avatar.Position = UDim2.fromOffset(8,8)
+
+avatar.BackgroundColor3 = Color3.fromRGB(15,48,100)
+avatar.BorderSizePixel = 0
+avatar.Parent = playerCard
+
+local avatarCorner = Instance.new("UICorner")
+avatarCorner.CornerRadius = UDim.new(1,0)
+avatarCorner.Parent = avatar
+
+local username = Instance.new("TextLabel")
+
+username.Size = UDim2.new(1,-58,0,22)
+username.Position = UDim2.fromOffset(53,7)
+
+username.BackgroundTransparency = 1
+username.Text = plr.Name
+username.TextColor3 = Color3.new(1,1,1)
+username.TextSize = 13
+username.Font = Enum.Font.GothamBold
+username.TextXAlignment = Enum.TextXAlignment.Left
+username.TextTruncate = Enum.TextTruncate.AtEnd
+username.Parent = playerCard
+
+local executorText = Instance.new("TextLabel")
+
+executorText.Size = UDim2.new(1,-58,0,18)
+executorText.Position = UDim2.fromOffset(53,28)
+
+executorText.BackgroundTransparency = 1
+executorText.Text = "CURRENT PLAYER"
+executorText.TextColor3 = Color3.fromRGB(150,185,235)
+executorText.TextSize = 9
+executorText.Font = Enum.Font.GothamMedium
+executorText.TextXAlignment = Enum.TextXAlignment.Left
+executorText.Parent = playerCard
+
+--------------------------------------------------
+-- LOAD PLAYER AVATAR
+--------------------------------------------------
+
+task.spawn(function()
+
+	local success,content,isReady =
+		pcall(function()
+
+			return Players:GetUserThumbnailAsync(
+				plr.UserId,
+				Enum.ThumbnailType.HeadShot,
+				Enum.ThumbnailSize.Size100x100
+			)
+
+		end)
+
+	if success and isReady then
+		avatar.Image = content
+	end
+
+end)
+
+--------------------------------------------------
+-- DRAGGING
+--------------------------------------------------
+
+local function makeDraggable(handle, object)
+
+	local dragging = false
+	local dragStart
+	local startPosition
+
+	handle.InputBegan:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+
+			dragging = true
+			dragStart = input.Position
+			startPosition = object.Position
+
+		end
+
+	end)
+
+	UIS.InputChanged:Connect(function(input)
+
+		if not dragging then
+			return
+		end
+
+		if input.UserInputType == Enum.UserInputType.MouseMovement
+			or input.UserInputType == Enum.UserInputType.Touch then
+
+			local delta = input.Position - dragStart
+
+			local newPosition = UDim2.new(
+				startPosition.X.Scale,
+				startPosition.X.Offset + delta.X,
+				startPosition.Y.Scale,
+				startPosition.Y.Offset + delta.Y
+			)
+
+			object.Position = newPosition
+
+		end
+
+	end)
+
+	UIS.InputEnded:Connect(function(input)
+
+		if input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch then
+
+			dragging = false
+
+		end
+
+	end)
+
+end
+
+--------------------------------------------------
+-- INDEPENDENT DRAGGING
+--------------------------------------------------
+
+-- The TOP BAR moves the entire menu
+makeDraggable(top, menu)
+
+-- The CLOSE button moves independently
+makeDraggable(toggle, toggle)
+
+--------------------------------------------------
+-- PLAYER CONNECTIONS
+--------------------------------------------------
+
+Players.PlayerAdded:Connect(function(player)
+
+	player.CharacterAdded:Connect(function()
+
+		task.wait(.5)
+
+		updateESP(player)
+
+	end)
+
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+
+	clearESP(player)
+
+	if target == player then
+		target = nil
+	end
+
+end)
+
+--------------------------------------------------
+-- RIGHT SHIFT
+--------------------------------------------------
+
+UIS.InputBegan:Connect(function(input,processed)
+
+	if processed then
+		return
+	end
+
+	if input.KeyCode == Enum.KeyCode.RightShift then
+
+		menu.Visible = not menu.Visible
+
+		toggle.Text =
+			menu.Visible and "CLOSE" or "OPEN"
+
+		showNotification(
+			menu.Visible
+			and "Menu opened."
+			or "Menu closed."
+		)
+
+	end
+
+end)
